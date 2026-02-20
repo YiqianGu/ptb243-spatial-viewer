@@ -1,0 +1,15 @@
+{
+  "dataset_name": "PTB243 CosMx 6K Panel",
+  "n_cells": 505211,
+  "n_celltypes": 29,
+  "cell_types": ["activated T cells", "AET1", "AET2", "alveolar macrophage", "B cells", "bronchial epithelial cells", "CD8+ T cells", "cDC1", "FB", "IFN-activated macrophage", "interstitial macrophage", "LAMP3+ DC", "lymphatic EC", "mast cells", "migratory LC", "monocytes", "myoFB", "naïve T cells", "neurons", "NK cells", "pDC", "plasma cells", "proliferating cells", "SPP1+ macrophage", "Th17 cells", "Tregs", "TREM2+ lipid associated macrophage", "Unknown", "vascular EC"],
+  "n_genes": 506,
+  "has_polygons": true,
+  "bounds": {
+    "x_min": 24.9717,
+    "x_max": 97960.5425,
+    "y_min": -4243.4295,
+    "y_max": 109897.4239
+  },
+  "celltype_col": "predicted_celltype"
+}
