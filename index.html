@@ -84,6 +84,28 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 }
 #legend-labels { display: flex; justify-content: space-between; font-size: 11px; color: #888; margin-top: 2px; }
 
+/* Selection summary bar */
+#selection-summary {
+  padding: 10px 14px; border-top: 1px solid #0f3460; font-size: 13px; color: #e0e0e0;
+  background: rgba(15,52,96,0.5);
+}
+#selection-summary .summary-count { color: #e94560; font-weight: 700; font-size: 14px; }
+#selection-summary .summary-types {
+  margin-top: 6px; font-size: 12px; color: #aaa; line-height: 1.5;
+  max-height: 60px; overflow-y: auto;
+}
+
+/* Background color row */
+.bg-color-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.bg-color-row label { font-size: 12px; color: #888; white-space: nowrap; }
+.bg-color-row input[type="color"] {
+  width: 28px; height: 22px; border: none; cursor: pointer; background: none; padding: 0;
+  border-radius: 3px;
+}
+.bg-color-row input[type="color"]::-webkit-color-swatch-wrapper { padding: 1px; }
+.bg-color-row input[type="color"]::-webkit-color-swatch { border: 1px solid #555; border-radius: 2px; }
+.bg-color-label { font-size: 12px; color: #e0e0e0; }
+
 /* Bottom buttons */
 #sidebar-footer { padding: 12px; border-top: 1px solid #0f3460; display: flex; gap: 8px; flex-wrap: wrap; }
 .action-btn {
@@ -188,6 +210,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       <span class="slider-val" id="poly-outline-val">0.5</span>
     </div>
 
+    <!-- Background color -->
+    <div class="bg-color-row">
+      <label>Background</label>
+      <input type="color" id="bg-color-picker" value="#1a1a2e" oninput="setBgColor(this.value)">
+      <span class="bg-color-label" id="bg-color-label">#1a1a2e</span>
+    </div>
+
     <!-- Cell type section -->
     <div id="celltype-section">
       <div class="section">
@@ -224,6 +253,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       </div>
     </div>
   </div>
+  <div id="selection-summary"></div>
   <div id="sidebar-footer">
     <button class="action-btn" onclick="resetView()">Reset View</button>
     <button class="action-btn" onclick="takeScreenshot()">Screenshot</button>
@@ -269,6 +299,7 @@ let hasPolygons = false;
 
 // Per-cell polygon arrays for deck.gl (built once)
 let polygonData = null;    // Array of {polygon: [[x,y],...], index: i}
+let captureScreenshot = false; // flag for screenshot capture
 
 // ============================================================================
 // Default 28-color palette (distinguishable)
@@ -347,6 +378,8 @@ async function init() {
   // Build UI
   buildCelltypeUI();
   buildGeneSearch();
+  loadBgColor();
+  updateSelectionSummary();
 
   // Initialize deck.gl
   setLoadingText('Initializing renderer...');
@@ -515,6 +548,17 @@ function initDeck() {
     getTooltip: getTooltipInfo,
     onViewStateChange: ({viewState}) => {
       updateHash(viewState);
+    },
+    onAfterRender: () => {
+      if (captureScreenshot) {
+        captureScreenshot = false;
+        const canvas = document.querySelector('#deck-canvas canvas');
+        if (!canvas) return;
+        const link = document.createElement('a');
+        link.download = `${metadata.dataset_name.replace(/\s+/g, '_')}_screenshot.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      }
     }
   });
 }
@@ -602,6 +646,7 @@ function updateLayer() {
   if (deckgl) {
     deckgl.setProps({ layers: createLayers() });
   }
+  updateSelectionSummary();
 }
 
 // ============================================================================
@@ -934,12 +979,9 @@ function resetView() {
 // Screenshot
 // ============================================================================
 function takeScreenshot() {
-  const canvas = document.querySelector('#deck-canvas canvas');
-  if (!canvas) return;
-  const link = document.createElement('a');
-  link.download = `${metadata.dataset_name.replace(/\s+/g, '_')}_screenshot.png`;
-  link.href = canvas.toDataURL('image/png');
-  link.click();
+  if (!deckgl) return;
+  captureScreenshot = true;
+  deckgl.redraw(true);
 }
 
 // ============================================================================
@@ -994,6 +1036,53 @@ function hexToRgb(hex) {
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
   return [r, g, b];
+}
+
+// ============================================================================
+// Background Color
+// ============================================================================
+let bgColor = [26, 26, 46]; // default #1a1a2e
+
+function setBgColor(hex) {
+  bgColor = hexToRgb(hex);
+  document.getElementById('bg-color-label').textContent = hex;
+  document.getElementById('deck-container').style.background = hex;
+  document.body.style.background = hex;
+  localStorage.setItem('spatial_viewer_bg', hex);
+}
+
+function loadBgColor() {
+  const saved = localStorage.getItem('spatial_viewer_bg');
+  if (saved) {
+    document.getElementById('bg-color-picker').value = saved;
+    setBgColor(saved);
+  }
+}
+
+// ============================================================================
+// Selection Summary
+// ============================================================================
+function updateSelectionSummary() {
+  const el = document.getElementById('selection-summary');
+  if (!metadata || !cellData) { el.innerHTML = ''; return; }
+
+  const selectedTypes = metadata.cell_types.filter(ct => celltypeVisible[ct] !== false);
+  const totalTypes = metadata.cell_types.length;
+
+  // Count visible cells
+  let visibleCells = 0;
+  const N = cellData.celltype.length;
+  for (let i = 0; i < N; i++) {
+    if (celltypeVisible[cellData.celltype[i]] !== false) visibleCells++;
+  }
+
+  const typeNames = selectedTypes.length <= 5
+    ? selectedTypes.join(', ')
+    : selectedTypes.slice(0, 5).join(', ') + ` +${selectedTypes.length - 5} more`;
+
+  el.innerHTML = `<span class="summary-count">${selectedTypes.length}/${totalTypes}</span> types · ` +
+    `<span class="summary-count">${visibleCells.toLocaleString()}</span>/${metadata.n_cells.toLocaleString()} cells` +
+    `<div class="summary-types">${typeNames}</div>`;
 }
 
 // ============================================================================
