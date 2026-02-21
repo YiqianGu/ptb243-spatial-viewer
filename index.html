@@ -91,8 +91,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 }
 #selection-summary .summary-count { color: #e94560; font-weight: 700; font-size: 14px; }
 #selection-summary .summary-types {
-  margin-top: 6px; font-size: 12px; color: #aaa; line-height: 1.5;
-  max-height: 120px; overflow-y: auto;
+  margin-top: 6px; font-size: 11px; color: #aaa; line-height: 1.6;
+  max-height: 120px; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 4px 6px;
+}
+.summary-chip {
+  display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+}
+.chip-dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
 }
 
 /* Background color row */
@@ -1088,11 +1094,14 @@ function updateSelectionSummary() {
     if (celltypeVisible[cellData.celltype[i]] !== false) visibleCells++;
   }
 
-  const typeNames = selectedTypes.join(', ');
+  const typeChips = selectedTypes.map(ct => {
+    const hex = rgbToHex(celltypeColors[ct] || [128,128,128]);
+    return `<span class="summary-chip"><span class="chip-dot" style="background:${hex}"></span>${ct}</span>`;
+  }).join('');
 
   el.innerHTML = `<span class="summary-count">${selectedTypes.length}/${totalTypes}</span> types · ` +
     `<span class="summary-count">${visibleCells.toLocaleString()}</span>/${metadata.n_cells.toLocaleString()} cells` +
-    `<div class="summary-types">${typeNames}</div>`;
+    `<div class="summary-types">${typeChips}</div>`;
 }
 
 // ============================================================================
