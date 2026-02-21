@@ -553,11 +553,7 @@ function initDeck() {
       if (captureScreenshot) {
         captureScreenshot = false;
         const canvas = document.querySelector('#deck-canvas canvas');
-        if (!canvas) return;
-        const link = document.createElement('a');
-        link.download = `${metadata.dataset_name.replace(/\s+/g, '_')}_screenshot.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
+        if (canvas) saveCanvasWithBackground(canvas);
       }
     }
   });
@@ -982,6 +978,22 @@ function takeScreenshot() {
   if (!deckgl) return;
   captureScreenshot = true;
   deckgl.redraw(true);
+}
+
+function saveCanvasWithBackground(srcCanvas) {
+  const w = srcCanvas.width, h = srcCanvas.height;
+  const tmpCanvas = document.createElement('canvas');
+  tmpCanvas.width = w; tmpCanvas.height = h;
+  const ctx = tmpCanvas.getContext('2d');
+  // Draw background color first
+  ctx.fillStyle = `rgb(${bgColor[0]},${bgColor[1]},${bgColor[2]})`;
+  ctx.fillRect(0, 0, w, h);
+  // Draw deck.gl canvas on top
+  ctx.drawImage(srcCanvas, 0, 0);
+  const link = document.createElement('a');
+  link.download = `${metadata.dataset_name.replace(/\s+/g, '_')}_screenshot.png`;
+  link.href = tmpCanvas.toDataURL('image/png');
+  link.click();
 }
 
 // ============================================================================
