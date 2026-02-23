@@ -76,6 +76,27 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   text-decoration: underline; margin-left: 8px;
 }
 
+/* Protein marker buttons */
+.protein-section { margin-bottom: 12px; }
+.protein-category { margin-bottom: 6px; }
+.protein-category-label { font-size: 11px; color: #666; margin-bottom: 3px; }
+.protein-grid { display: flex; flex-wrap: wrap; gap: 4px; }
+.protein-btn {
+  padding: 4px 8px; font-size: 11px; background: #1a1a2e; border: 1px solid #0f3460;
+  border-radius: 4px; color: #aaa; cursor: pointer; transition: all 0.15s;
+}
+.protein-btn:hover { border-color: #e94560; color: #e0e0e0; }
+.protein-btn.active { background: #0f3460; border-color: #e94560; color: #e94560; font-weight: 600; }
+
+/* Colormap dropdown */
+.colormap-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; margin-bottom: 4px; }
+.colormap-row label { font-size: 12px; color: #888; white-space: nowrap; }
+#colormap-select {
+  flex: 1; padding: 4px 6px; background: #1a1a2e; border: 1px solid #0f3460; border-radius: 4px;
+  color: #e0e0e0; font-size: 12px; outline: none; cursor: pointer;
+}
+#colormap-select:focus { border-color: #e94560; }
+
 /* Color scale legend for expression */
 #expression-legend { display: none; margin-top: 12px; }
 #legend-gradient {
@@ -237,11 +258,27 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
     <!-- Gene expression section -->
     <div id="gene-section">
+      <!-- Protein markers (populated dynamically) -->
+      <div class="section" id="protein-section" style="display:none;">
+        <div class="section-title">Protein Markers</div>
+        <div id="protein-buttons"></div>
+      </div>
+
       <div class="section">
         <div class="section-title">Gene Expression</div>
         <input type="text" id="gene-search" placeholder="Search genes..." autocomplete="off">
         <div id="gene-dropdown"></div>
         <div id="current-gene"></div>
+        <div class="colormap-row">
+          <label>Colormap</label>
+          <select id="colormap-select">
+            <option value="viridis">Viridis</option>
+            <option value="inferno">Inferno</option>
+            <option value="plasma">Plasma</option>
+            <option value="magma">Magma</option>
+            <option value="turbo">Turbo</option>
+          </select>
+        </div>
         <div id="expression-legend">
           <div id="legend-gradient"></div>
           <div id="legend-labels"><span id="legend-min">0</span><span>Expression</span><span id="legend-max">1</span></div>
@@ -321,12 +358,43 @@ const DEFAULT_PALETTE = [
   [147, 112, 219], [60, 179, 113],  [255, 165, 0],   [106, 90, 205]
 ];
 
-// Viridis colormap (10 stops for interpolation)
-const VIRIDIS = [
-  [68, 1, 84], [72, 39, 119], [62, 73, 137], [49, 104, 142],
-  [38, 130, 142], [31, 158, 137], [53, 183, 121], [110, 206, 88],
-  [181, 222, 43], [253, 231, 37]
-];
+// Colormaps (10 stops each for interpolation)
+const COLORMAPS = {
+  viridis: [
+    [68, 1, 84], [72, 39, 119], [62, 73, 137], [49, 104, 142],
+    [38, 130, 142], [31, 158, 137], [53, 183, 121], [110, 206, 88],
+    [181, 222, 43], [253, 231, 37]
+  ],
+  inferno: [
+    [0, 0, 4], [22, 11, 57], [66, 10, 104], [106, 23, 110],
+    [147, 38, 103], [188, 55, 84], [221, 81, 58], [243, 120, 25],
+    [249, 178, 33], [252, 255, 164]
+  ],
+  plasma: [
+    [13, 8, 135], [65, 4, 157], [106, 0, 168], [143, 13, 164],
+    [177, 42, 144], [204, 71, 120], [225, 100, 98], [242, 132, 75],
+    [252, 175, 46], [240, 249, 33]
+  ],
+  magma: [
+    [0, 0, 4], [18, 14, 54], [51, 16, 104], [89, 26, 120],
+    [130, 37, 129], [170, 51, 119], [209, 70, 101], [236, 105, 80],
+    [251, 163, 83], [252, 253, 191]
+  ],
+  turbo: [
+    [48, 18, 59], [70, 107, 227], [40, 170, 225], [29, 220, 158],
+    [95, 247, 78], [175, 240, 18], [234, 200, 12], [253, 141, 14],
+    [234, 72, 11], [122, 4, 3]
+  ]
+};
+
+// Legacy alias (used by rebuildColors)
+const VIRIDIS = COLORMAPS.viridis;
+
+let currentColormap = 'viridis';
+
+// Protein state
+let proteinList = null;    // {proteinName: filename, ...} or null
+let currentProtein = null; // name of active protein or null
 
 // ============================================================================
 // Initialization
@@ -381,9 +449,19 @@ async function init() {
     document.getElementById('render-toggle-row').style.display = 'none';
   }
 
+  // Load protein list (optional — backward compatible)
+  try {
+    const protResp = await fetch('data/protein_list.json');
+    if (protResp.ok) {
+      proteinList = await protResp.json();
+    }
+  } catch (e) { /* no proteins available */ }
+
   // Build UI
   buildCelltypeUI();
   buildGeneSearch();
+  buildProteinButtons();
+  loadColormapPreference();
   loadBgColor();
   updateSelectionSummary();
 
@@ -496,7 +574,7 @@ function rebuildColors() {
         colors[i * 4 + 3] = 100;
       } else {
         const t = Math.min(val / maxVal, 1);
-        const rgb = viridisInterp(t);
+        const rgb = colormapInterp(t);
         colors[i * 4]     = rgb[0];
         colors[i * 4 + 1] = rgb[1];
         colors[i * 4 + 2] = rgb[2];
@@ -516,17 +594,21 @@ function rebuildColors() {
   }
 }
 
-function viridisInterp(t) {
-  const idx = t * (VIRIDIS.length - 1);
+function colormapInterp(t) {
+  const stops = COLORMAPS[currentColormap] || COLORMAPS.viridis;
+  const idx = t * (stops.length - 1);
   const lo = Math.floor(idx);
-  const hi = Math.min(lo + 1, VIRIDIS.length - 1);
+  const hi = Math.min(lo + 1, stops.length - 1);
   const f = idx - lo;
   return [
-    Math.round(VIRIDIS[lo][0] * (1 - f) + VIRIDIS[hi][0] * f),
-    Math.round(VIRIDIS[lo][1] * (1 - f) + VIRIDIS[hi][1] * f),
-    Math.round(VIRIDIS[lo][2] * (1 - f) + VIRIDIS[hi][2] * f)
+    Math.round(stops[lo][0] * (1 - f) + stops[hi][0] * f),
+    Math.round(stops[lo][1] * (1 - f) + stops[hi][1] * f),
+    Math.round(stops[lo][2] * (1 - f) + stops[hi][2] * f)
   ];
 }
+
+// Legacy alias
+function viridisInterp(t) { return colormapInterp(t); }
 
 // ============================================================================
 // deck.gl Initialization
@@ -567,7 +649,7 @@ function initDeck() {
 
 function createLayers() {
   const N = cellData.x.length;
-  const colorTrigger = [currentMode, currentGene, JSON.stringify(celltypeVisible), JSON.stringify(celltypeColors)];
+  const colorTrigger = [currentMode, currentGene, currentProtein, currentColormap, JSON.stringify(celltypeVisible), JSON.stringify(celltypeColors)];
 
   if (renderMode === 'polygons' && hasPolygons) {
     const layers = [
@@ -693,7 +775,9 @@ function getTooltipInfo({index, object}) {
 
   if (currentMode === 'expression' && currentGeneExpr) {
     const val = currentGeneExpr.dense[cellIdx];
-    html += `<div class="tt-label">${currentGene}</div><div class="tt-value">${val.toFixed(3)}</div>`;
+    const label = currentProtein || currentGene;
+    const formatted = currentProtein ? Math.round(val).toString() : val.toFixed(3);
+    html += `<div class="tt-label">${label}</div><div class="tt-value">${formatted}</div>`;
   }
 
   return { html, style: { backgroundColor: 'rgba(22,33,62,0.95)', color: '#e0e0e0', border: '1px solid #0f3460', borderRadius: '6px', padding: '8px 12px', fontSize: '12px' } };
@@ -893,6 +977,9 @@ async function loadGene(geneName) {
   const filename = geneList[geneName];
   if (!filename) return;
 
+  // Clear active protein
+  clearProtein(true);
+
   document.getElementById('gene-search').value = geneName;
   document.getElementById('gene-dropdown').style.display = 'none';
 
@@ -926,6 +1013,7 @@ async function loadGene(geneName) {
     document.getElementById('expression-legend').style.display = 'block';
     document.getElementById('legend-min').textContent = '0';
     document.getElementById('legend-max').textContent = p99.toFixed(2);
+    updateLegendGradient();
 
     updateLayer();
     updateHash();
@@ -937,11 +1025,126 @@ async function loadGene(geneName) {
 function clearGene() {
   currentGene = null;
   currentGeneExpr = null;
+  currentProtein = null;
   document.getElementById('gene-search').value = '';
   document.getElementById('current-gene').innerHTML = '';
   document.getElementById('expression-legend').style.display = 'none';
+  // Deactivate protein buttons
+  document.querySelectorAll('.protein-btn.active').forEach(b => b.classList.remove('active'));
   updateLayer();
   updateHash();
+}
+
+// ============================================================================
+// Protein Markers
+// ============================================================================
+function buildProteinButtons() {
+  if (!proteinList || Object.keys(proteinList).length === 0) return;
+
+  const section = document.getElementById('protein-section');
+  const container = document.getElementById('protein-buttons');
+  section.style.display = 'block';
+
+  // Group by marker base name (e.g., "CD3" from "Mean.CD3")
+  const names = Object.keys(proteinList).sort();
+  const grid = document.createElement('div');
+  grid.className = 'protein-grid';
+
+  names.forEach(name => {
+    const btn = document.createElement('button');
+    btn.className = 'protein-btn';
+    // Show shortened label: "Mean.CD3" → "CD3"
+    btn.textContent = name.replace(/^Mean\./, '');
+    btn.title = name;
+    btn.dataset.protein = name;
+    btn.addEventListener('click', () => loadProtein(name));
+    grid.appendChild(btn);
+  });
+
+  container.appendChild(grid);
+}
+
+async function loadProtein(name) {
+  const filename = proteinList[name];
+  if (!filename) return;
+
+  // Show loading
+  document.getElementById('current-gene').innerHTML = `Loading <strong>${name}</strong>...`;
+
+  try {
+    const resp = await fetch(`data/proteins/${filename}`);
+    const sparse = await resp.json();
+
+    // Expand sparse to dense
+    const N = sparse.n;
+    const dense = new Float32Array(N);
+    let maxVal = 0;
+    for (let j = 0; j < sparse.idx.length; j++) {
+      dense[sparse.idx[j]] = sparse.val[j];
+      if (sparse.val[j] > maxVal) maxVal = sparse.val[j];
+    }
+
+    // Use 99th percentile for color scale
+    const nonzero = sparse.val.slice().sort((a, b) => a - b);
+    const p99idx = Math.floor(nonzero.length * 0.99);
+    const p99 = nonzero[p99idx] || maxVal;
+
+    // Reuse expression rendering pipeline
+    currentGene = name;
+    currentGeneExpr = { dense, maxVal: p99 };
+    currentProtein = name;
+
+    // Update UI
+    document.getElementById('gene-search').value = '';
+    document.getElementById('current-gene').innerHTML =
+      `Showing: <strong>${name}</strong> <button id="clear-gene-btn" onclick="clearGene()">Clear</button>`;
+    document.getElementById('expression-legend').style.display = 'block';
+    document.getElementById('legend-min').textContent = '0';
+    document.getElementById('legend-max').textContent = Math.round(p99).toString();
+    updateLegendGradient();
+
+    // Highlight active button
+    document.querySelectorAll('.protein-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.protein === name);
+    });
+
+    updateLayer();
+    updateHash();
+  } catch (err) {
+    document.getElementById('current-gene').innerHTML = `<span style="color:#e94560">Error loading ${name}</span>`;
+  }
+}
+
+function clearProtein(skipUpdate) {
+  currentProtein = null;
+  document.querySelectorAll('.protein-btn.active').forEach(b => b.classList.remove('active'));
+  if (!skipUpdate) {
+    clearGene();
+  }
+}
+
+// ============================================================================
+// Colormap Selection
+// ============================================================================
+function loadColormapPreference() {
+  const saved = localStorage.getItem('spatial_viewer_colormap');
+  if (saved && COLORMAPS[saved]) {
+    currentColormap = saved;
+    document.getElementById('colormap-select').value = saved;
+  }
+
+  document.getElementById('colormap-select').addEventListener('change', (e) => {
+    currentColormap = e.target.value;
+    localStorage.setItem('spatial_viewer_colormap', currentColormap);
+    updateLegendGradient();
+    if (currentGeneExpr) updateLayer();
+  });
+}
+
+function updateLegendGradient() {
+  const stops = COLORMAPS[currentColormap] || COLORMAPS.viridis;
+  const cssStops = stops.map(rgb => `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`).join(', ');
+  document.getElementById('legend-gradient').style.background = `linear-gradient(to right, ${cssStops})`;
 }
 
 // ============================================================================
@@ -1013,7 +1216,11 @@ function updateHash(viewState) {
     params.set('z', viewState.zoom.toFixed(2));
   }
   if (currentMode !== 'celltype') params.set('mode', currentMode);
-  if (currentGene) params.set('gene', currentGene);
+  if (currentProtein) {
+    params.set('protein', currentProtein);
+  } else if (currentGene) {
+    params.set('gene', currentGene);
+  }
   if (renderMode !== 'points') params.set('render', renderMode);
   const hash = params.toString();
   if (hash) history.replaceState(null, '', '#' + hash);
@@ -1028,7 +1235,10 @@ function restoreFromHash() {
     toggleRenderMode();
   }
   if (params.has('mode')) setMode(params.get('mode'));
-  if (params.has('gene')) {
+  if (params.has('protein') && proteinList && proteinList[params.get('protein')]) {
+    setMode('expression');
+    loadProtein(params.get('protein'));
+  } else if (params.has('gene')) {
     setMode('expression');
     loadGene(params.get('gene'));
   }
