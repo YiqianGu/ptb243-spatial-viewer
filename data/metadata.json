@@ -1,8 +1,8 @@
 {
   "dataset_name": "PTB243 CosMx 6K Panel",
   "n_cells": 505211,
-  "n_celltypes": 29,
-  "cell_types": ["activated T cells", "AET1", "AET2", "alveolar macrophage", "B cells", "bronchial epithelial cells", "CD8+ T cells", "cDC1", "FB", "IFN-activated macrophage", "interstitial macrophage", "LAMP3+ DC", "lymphatic EC", "mast cells", "migratory LC", "monocytes", "myoFB", "naïve T cells", "neurons", "NK cells", "pDC", "plasma cells", "proliferating cells", "SPP1+ macrophage", "Th17 cells", "Tregs", "TREM2+ lipid associated macrophage", "Unknown", "vascular EC"],
+  "n_celltypes": 20,
+  "cell_types": ["AET1", "AET2", "B cells", "bronchial epithelial cells", "FB", "lymphatic EC", "macrophage (major)", "mast cells", "neurons", "proliferating AET", "proliferating B cell", "proliferating cells (unresolved)", "proliferating Myeloid", "proliferating Other", "proliferating Stroma and EC", "proliferating T cell", "T cell (major)", "unassigned", "Unknown", "vascular EC"],
   "n_genes": 506,
   "has_polygons": true,
   "has_proteins": true,
@@ -13,5 +13,27 @@
     "y_min": -4243.4295,
     "y_max": 109897.4239
   },
-  "celltype_col": "predicted_celltype"
+  "celltype_col": "v3_celltype",
+  "annotations": {
+    "v3_celltype": {
+      "label": "V3 Major Cell Type",
+      "cell_types": ["AET1", "AET2", "B cells", "bronchial epithelial cells", "FB", "lymphatic EC", "macrophage (major)", "mast cells", "neurons", "proliferating AET", "proliferating B cell", "proliferating cells (unresolved)", "proliferating Myeloid", "proliferating Other", "proliferating Stroma and EC", "proliferating T cell", "T cell (major)", "unassigned", "Unknown", "vascular EC"],
+      "n_celltypes": 20
+    },
+    "final_label": {
+      "label": "V3 Subtype (Final Label)",
+      "cell_types": ["activated T cells", "AET1", "AET2", "alveolar macrophage", "B cells", "bronchial epithelial cells", "CD8+ T cells", "cDC1", "FB", "IFN-activated macrophage", "interstitial macrophage", "LAMP3+ DC", "lymphatic EC", "macrophage (major) (low confidence)", "mast cells", "migratory LC", "monocytes", "naïve T cells", "neurons", "NK cells", "pDC", "proliferating AET", "proliferating B cell", "proliferating cells (unresolved)", "proliferating Myeloid", "proliferating Other", "proliferating Stroma and EC", "proliferating T cell", "SPP1+ macrophage", "T cell (major) (low confidence)", "Th17 cells", "Tregs", "TREM2+ lipid associated macrophage", "unassigned", "Unknown", "vascular EC"],
+      "n_celltypes": 36
+    },
+    "celltype": {
+      "label": "V1 Original",
+      "cell_types": ["activated T cells", "AET1", "AET2", "alveolar macrophage", "B cells", "bronchial epithelial cells", "CD8+ T cells", "cDC1", "FB", "IFN-activated macrophage", "interstitial macrophage", "LAMP3+ DC", "lymphatic EC", "mast cells", "migratory LC", "monocytes", "myoFB", "naïve T cells", "neurons", "NK cells", "pDC", "plasma cells", "proliferating cells", "SPP1+ macrophage", "Th17 cells", "Tregs", "TREM2+ lipid associated macrophage", "Unknown", "vascular EC"],
+      "n_celltypes": 29
+    },
+    "celltype_rescued": {
+      "label": "V1 With Rescued T Cells",
+      "cell_types": ["activated T cells", "AET1", "AET2", "alveolar macrophage", "B cells", "bronchial epithelial cells", "CD8+ T cells", "cDC1", "FB", "IFN-activated macrophage", "interstitial macrophage", "LAMP3+ DC", "lymphatic EC", "mast cells", "migratory LC", "monocytes", "myoFB", "naïve T cells", "neurons", "NK cells", "pDC", "plasma cells", "proliferating cells", "rescued activated T cells", "rescued CD4+ T cells", "rescued CD8+ T cells", "rescued naïve T cells", "rescued T cell (unspecified)", "rescued Th17 cells", "rescued Tregs", "SPP1+ macrophage", "Th17 cells", "Tregs", "TREM2+ lipid associated macrophage", "Unknown", "vascular EC"],
+      "n_celltypes": 36
+    }
+  }
 }

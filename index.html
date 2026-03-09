@@ -244,6 +244,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       <span class="bg-color-label" id="bg-color-label">#1a1a2e</span>
     </div>
 
+    <!-- Annotation layer selector -->
+    <div class="section" id="annotation-section" style="display:none; margin-bottom: 12px;">
+      <div class="section-title">Annotation Layer</div>
+      <select id="annotation-select" style="width:100%; padding:6px 8px; background:#1a1a2e; border:1px solid #0f3460; border-radius:6px; color:#e0e0e0; font-size:13px; cursor:pointer; outline:none;">
+      </select>
+    </div>
+
     <!-- Cell type section -->
     <div id="celltype-section">
       <div class="section">
@@ -318,10 +325,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 // ============================================================================
 // Global State
 // ============================================================================
-let cellData = null;       // {x:[], y:[], celltype:[], cell_id:[]}
-let metadata = null;       // {dataset_name, n_cells, cell_types, bounds, ...}
+let cellData = null;       // {x:[], y:[], celltype:[], celltype_rescued:[], cell_id:[]}
+let metadata = null;       // {dataset_name, n_cells, cell_types, bounds, annotations, ...}
 let geneList = null;       // {geneName: filename, ...}
 let currentMode = 'celltype';
+let currentAnnotation = 'celltype'; // which celltype array to use
 let currentGene = null;
 let currentGeneExpr = null;
 let celltypeVisible = {};  // {typeName: bool}
@@ -457,6 +465,24 @@ async function init() {
     }
   } catch (e) { /* no proteins available */ }
 
+  // Build annotation layer dropdown if multiple annotations available
+  if (metadata.annotations) {
+    const annSection = document.getElementById('annotation-section');
+    const annSelect = document.getElementById('annotation-select');
+    const keys = Object.keys(metadata.annotations);
+    if (keys.length > 1) {
+      annSection.style.display = 'block';
+      keys.forEach(key => {
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = metadata.annotations[key].label || key;
+        annSelect.appendChild(opt);
+      });
+      annSelect.value = currentAnnotation;
+      annSelect.addEventListener('change', () => switchAnnotation(annSelect.value));
+    }
+  }
+
   // Build UI
   buildCelltypeUI();
   buildGeneSearch();
@@ -548,7 +574,7 @@ function rebuildColors() {
 
   if (currentMode === 'celltype') {
     for (let i = 0; i < N; i++) {
-      const ct = cellData.celltype[i];
+      const ct = getCelltype(i);
       const rgb = celltypeColors[ct] || [128, 128, 128];
       const visible = celltypeVisible[ct] !== false;
       colors[i * 4]     = rgb[0];
@@ -560,7 +586,7 @@ function rebuildColors() {
     const expr = currentGeneExpr;
     const maxVal = expr.maxVal || 1;
     for (let i = 0; i < N; i++) {
-      const ct = cellData.celltype[i];
+      const ct = getCelltype(i);
       const visible = celltypeVisible[ct] !== false;
       const val = expr.dense[i];
       if (!visible) {
@@ -584,7 +610,7 @@ function rebuildColors() {
   } else {
     // Expression mode but no gene loaded — show cell types dimmed
     for (let i = 0; i < N; i++) {
-      const ct = cellData.celltype[i];
+      const ct = getCelltype(i);
       const visible = celltypeVisible[ct] !== false;
       colors[i * 4]     = 80;
       colors[i * 4 + 1] = 80;
@@ -605,6 +631,34 @@ function colormapInterp(t) {
     Math.round(stops[lo][1] * (1 - f) + stops[hi][1] * f),
     Math.round(stops[lo][2] * (1 - f) + stops[hi][2] * f)
   ];
+}
+
+// Helper: get active celltype array
+function getCelltype(i) {
+  return cellData[currentAnnotation][i];
+}
+
+// Annotation layer switching
+function switchAnnotation(key) {
+  currentAnnotation = key;
+  // Update metadata.cell_types to match selected annotation
+  if (metadata.annotations && metadata.annotations[key]) {
+    metadata.cell_types = metadata.annotations[key].cell_types;
+    metadata.n_celltypes = metadata.annotations[key].n_celltypes;
+  }
+  // Re-initialize colors for new cell types
+  const saved = localStorage.getItem('spatial_viewer_colors');
+  const savedObj = saved ? JSON.parse(saved) : {};
+  celltypeColors = {};
+  celltypeVisible = {};
+  metadata.cell_types.forEach((ct, i) => {
+    celltypeColors[ct] = savedObj[ct] || DEFAULT_PALETTE[i % DEFAULT_PALETTE.length];
+    celltypeVisible[ct] = true;
+  });
+  // Rebuild UI and re-render
+  buildCelltypeUI();
+  updateSelectionSummary();
+  updateLayer();
 }
 
 // Legacy alias
@@ -767,7 +821,7 @@ function getTooltipInfo({index, object}) {
   }
   if (cellIdx == null || cellIdx < 0 || !cellData) return null;
 
-  const ct = cellData.celltype[cellIdx];
+  const ct = getCelltype(cellIdx);
   if (celltypeVisible[ct] === false) return null;
 
   let html = `<div class="tt-label">Cell ID</div><div class="tt-value">${cellData.cell_id[cellIdx]}</div>`;
@@ -794,7 +848,7 @@ function buildCelltypeUI() {
 
   // Count cells per type
   const counts = {};
-  cellData.celltype.forEach(ct => { counts[ct] = (counts[ct] || 0) + 1; });
+  cellData[currentAnnotation].forEach(ct => { counts[ct] = (counts[ct] || 0) + 1; });
 
   metadata.cell_types.forEach(ct => {
     const row = createCelltypeRow(ct, counts[ct] || 0);
@@ -1299,9 +1353,9 @@ function updateSelectionSummary() {
 
   // Count visible cells
   let visibleCells = 0;
-  const N = cellData.celltype.length;
+  const N = cellData[currentAnnotation].length;
   for (let i = 0; i < N; i++) {
-    if (celltypeVisible[cellData.celltype[i]] !== false) visibleCells++;
+    if (celltypeVisible[getCelltype(i)] !== false) visibleCells++;
   }
 
   const typeChips = selectedTypes.map(ct => {
