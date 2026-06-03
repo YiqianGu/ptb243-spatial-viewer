@@ -101,7 +101,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 #expression-legend { display: none; margin-top: 12px; }
 #legend-gradient {
   width: 100%; height: 14px; border-radius: 3px;
-  background: linear-gradient(to right, #440154, #482777, #3e4989, #31688e, #26828e, #1f9e89, #35b779, #6ece58, #b5de2b, #fde725);
+  background: linear-gradient(to right, #ffffff, #ffebe1, #ffd2be, #ffb496, #ff966e, #fc734b, #f05032, #d72d23, #b40f14, #96000a);
 }
 #legend-labels { display: flex; justify-content: space-between; font-size: 11px; color: #888; margin-top: 2px; }
 
@@ -279,6 +279,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         <div class="colormap-row">
           <label>Colormap</label>
           <select id="colormap-select">
+            <option value="whitered">White → Red</option>
             <option value="viridis">Viridis</option>
             <option value="inferno">Inferno</option>
             <option value="plasma">Plasma</option>
@@ -368,6 +369,11 @@ const DEFAULT_PALETTE = [
 
 // Colormaps (10 stops each for interpolation)
 const COLORMAPS = {
+  whitered: [
+    [255, 255, 255], [255, 235, 225], [255, 210, 190], [255, 180, 150],
+    [255, 150, 110], [252, 115, 75], [240, 80, 50], [215, 45, 35],
+    [180, 15, 20], [150, 0, 10]
+  ],
   viridis: [
     [68, 1, 84], [72, 39, 119], [62, 73, 137], [49, 104, 142],
     [38, 130, 142], [31, 158, 137], [53, 183, 121], [110, 206, 88],
@@ -398,7 +404,7 @@ const COLORMAPS = {
 // Legacy alias (used by rebuildColors)
 const VIRIDIS = COLORMAPS.viridis;
 
-let currentColormap = 'viridis';
+let currentColormap = 'whitered';
 
 // Protein state
 let proteinList = null;    // {proteinName: filename, ...} or null
