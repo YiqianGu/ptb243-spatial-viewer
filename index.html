@@ -599,19 +599,12 @@ function rebuildColors() {
         colors[i * 4 + 3] = 0;
         continue;
       }
-      if (val === 0) {
-        colors[i * 4]     = 30;
-        colors[i * 4 + 1] = 30;
-        colors[i * 4 + 2] = 30;
-        colors[i * 4 + 3] = 100;
-      } else {
-        const t = Math.min(val / maxVal, 1);
-        const rgb = colormapInterp(t);
-        colors[i * 4]     = rgb[0];
-        colors[i * 4 + 1] = rgb[1];
-        colors[i * 4 + 2] = rgb[2];
-        colors[i * 4 + 3] = 220;
-      }
+      const t = Math.min(val / maxVal, 1);
+      const rgb = colormapInterp(t);
+      colors[i * 4]     = rgb[0];
+      colors[i * 4 + 1] = rgb[1];
+      colors[i * 4 + 2] = rgb[2];
+      colors[i * 4 + 3] = 220;
     }
   } else {
     // Expression mode but no gene loaded — show cell types dimmed
