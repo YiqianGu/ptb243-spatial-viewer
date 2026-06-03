@@ -504,5 +504,7 @@
   "AGER": "AGER.json",
   "CCL18": "CCL18.json",
   "NCOR2": "NCOR2.json",
-  "SSNA1": "SSNA1.json"
+  "SSNA1": "SSNA1.json",
+  "IFNG": "IFNG.json",
+  "IL26": "IL26.json"
 }
